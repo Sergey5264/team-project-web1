@@ -5,13 +5,18 @@ export default function GameDetails() {
   const { id } = useParams();
   const [game, setGame] = useState(null);
   const [screenshots, setScreenshots] = useState([]);
+  const [similarGames, setSimilarGames] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedScreenshot, setSelectedScreenshot] = useState(null);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+    
     const fetchGameData = async () => {
+      setIsLoading(true);
       try {
         const API_KEY = import.meta.env.VITE_RAWG_API_KEY;
+        
         const [gameRes, screenRes] = await Promise.all([
           fetch(`https://api.rawg.io/api/games/${id}?key=${API_KEY}`),
           fetch(`https://api.rawg.io/api/games/${id}/screenshots?key=${API_KEY}`)
@@ -22,6 +27,17 @@ export default function GameDetails() {
 
         setGame(gameData);
         setScreenshots(screenData.results);
+
+        if (gameData.genres && gameData.genres.length > 0) {
+          const mainGenre = gameData.genres[0].slug;
+          const similarRes = await fetch(
+            `https://api.rawg.io/api/games?key=${API_KEY}&genres=${mainGenre}&ordering=-rating&page_size=5`
+          );
+          const similarData = await similarRes.json();
+          const filteredSimilar = similarData.results.filter(g => g.id !== gameData.id).slice(0, 4);
+          setSimilarGames(filteredSimilar);
+        }
+
       } catch (error) {
         console.error("Error fetching details:", error);
       } finally {
@@ -31,123 +47,134 @@ export default function GameDetails() {
     fetchGameData();
   }, [id]);
 
-  const getMetacriticColor = (score) => {
-    if (!score) return 'text-zinc-500';
-    if (score >= 75) return 'text-green-500 border-green-500/50 bg-green-500/10';
-    if (score >= 50) return 'text-yellow-500 border-yellow-500/50 bg-yellow-500/10';
-    return 'text-red-500 border-red-500/50 bg-red-500/10';
-  };
-
-  if (isLoading) return <div className="p-20 text-center animate-pulse text-zinc-500 font-mono text-xl">Loading data...</div>;
+  if (isLoading) return <div className="p-20 text-center text-zinc-500 font-mono text-xl">Loading data...</div>;
   if (!game) return <div className="p-20 text-center text-red-500">Game not found</div>;
 
   return (
     <>
-      {/* 1. ОСНОВНОЙ КОНТЕНТ (Блюрится при клике) */}
-      <div className={`max-w-6xl mx-auto pb-12 transition-all duration-300 ${selectedScreenshot ? 'blur-md scale-[0.98] pointer-events-none' : ''}`}>
-        <Link to="/" className="text-zinc-500 hover:text-white transition mb-6 inline-block font-medium">
-          ← Back to Vault
-        </Link>
+      <div className={`max-w-6xl mx-auto pb-12 transition-all duration-300 ${selectedScreenshot ? 'blur-md scale-[0.99] pointer-events-none' : ''}`}>
         
-        <div className="relative h-[500px] rounded-3xl overflow-hidden mb-12 shadow-2xl shadow-blue-500/5">
-          <img src={game.background_image} alt={game.name} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent"></div>
-          <div className="absolute bottom-10 left-10 right-10 flex justify-between items-end">
-            <div>
-              <div className="flex gap-2 mb-3">
-                {game.genres?.map(g => (
-                  <span key={g.id} className="bg-blue-600/80 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                    {g.name}
-                  </span>
-                ))}
-              </div>
-              <h1 className="text-5xl lg:text-7xl font-black text-white uppercase tracking-tighter italic">
-                {game.name}
-              </h1>
+        <div className="flex items-center gap-2 text-sm text-zinc-500 mb-6 bg-zinc-900/50 p-3 rounded">
+          <Link to="/" className="hover:text-white transition">All Games</Link>
+          <span>&gt;</span>
+          <span className="text-zinc-300">{game.genres?.[0]?.name || 'Game'}</span>
+          <span>&gt;</span>
+          <span className="text-white">{game.name}</span>
+        </div>
+        
+        <h1 className="text-4xl font-bold text-white mb-6 tracking-tight">
+          {game.name}
+        </h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+          
+          <div className="lg:col-span-2 space-y-4">
+            <div className="bg-black aspect-video relative">
+               <img src={game.background_image} alt={game.name} className="w-full h-full object-contain" />
             </div>
             
-            {game.metacritic && (
-              <div className={`hidden md:flex flex-col items-center justify-center w-24 h-24 rounded-2xl border-2 backdrop-blur-md ${getMetacriticColor(game.metacritic)}`}>
-                <span className="text-4xl font-black">{game.metacritic}</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest mt-1">Score</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          <div className="lg:col-span-2 space-y-10">
-            <section>
-              <h2 className="text-2xl font-bold text-white mb-4 border-b border-zinc-800 pb-2 uppercase tracking-wider">About</h2>
-              <p className="text-zinc-400 leading-relaxed text-lg whitespace-pre-wrap">
-                {game.description_raw || game.description.replace(/<[^>]*>?/gm, '')}
-              </p>
-            </section>
-
             {screenshots.length > 0 && (
-              <section>
-                <h2 className="text-2xl font-bold text-white mb-4 border-b border-zinc-800 pb-2 uppercase tracking-wider">Gallery</h2>
-                <div className="grid grid-cols-2 gap-5">
-                  {screenshots.slice(0, 4).map((shot) => (
-                    <img 
-                      key={shot.id} 
-                      src={shot.image} 
-                      alt="Gameplay screenshot" 
-                      className="w-full h-48 object-cover rounded-2xl border-2 border-zinc-800 hover:border-blue-500 cursor-pointer transition-all hover:scale-105 pointer-events-auto"
-                      onClick={() => setSelectedScreenshot(shot.image)}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-
-          <div className="space-y-6 bg-zinc-900/40 p-8 rounded-3xl border border-zinc-800/50 h-fit sticky top-28">
-            <div>
-              <h3 className="text-xs font-bold text-zinc-500 uppercase mb-2">Developer</h3>
-              <p className="text-white font-medium">{game.developers?.map(d => d.name).join(', ') || 'Unknown'}</p>
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-zinc-500 uppercase mb-2">Release Date</h3>
-              <p className="text-white font-medium">{game.released || 'TBA'}</p>
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-zinc-500 uppercase mb-3">Platforms</h3>
-              <div className="flex flex-wrap gap-2">
-                {game.platforms?.map(p => (
-                  <span key={p.platform.id} className="bg-zinc-800/80 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-300">
-                    {p.platform.name}
-                  </span>
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {screenshots.slice(0, 5).map((shot) => (
+                  <img 
+                    key={shot.id} 
+                    src={shot.image} 
+                    alt="Thumbnail" 
+                    className="h-20 w-32 object-cover cursor-pointer hover:opacity-80 transition-opacity border border-transparent hover:border-white"
+                    onClick={() => setSelectedScreenshot(shot.image)}
+                  />
                 ))}
               </div>
+            )}
+          </div>
+
+          <div className="bg-[#12151a] p-6 text-sm text-zinc-400 flex flex-col h-full">
+            <img src={game.background_image} alt="capsule" className="w-full mb-4 hidden lg:block" />
+            
+            <p className="mb-6 leading-snug line-clamp-4">
+              {game.description_raw || game.description.replace(/<[^>]*>?/gm, '')}
+            </p>
+
+            <div className="space-y-2 mt-auto">
+              <div className="flex justify-between border-b border-zinc-800 pb-2">
+                <span className="text-zinc-500">Recent Reviews:</span>
+                <span className={game.rating > 4 ? "text-[#66C0F4]" : "text-zinc-300"}>
+                  {game.rating > 4 ? 'Very Positive' : 'Mixed'} ({game.rating}/5)
+                </span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-800 pb-2">
+                <span className="text-zinc-500">Release Date:</span>
+                <span className="text-zinc-300">{game.released || 'TBA'}</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-800 pb-2">
+                <span className="text-zinc-500">Developer:</span>
+                <span className="text-[#66C0F4]">{game.developers?.map(d => d.name).join(', ') || 'Unknown'}</span>
+              </div>
             </div>
+
             {game.website && (
               <a 
                 href={game.website} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="block w-full py-4 text-center bg-blue-600 text-white font-bold uppercase tracking-widest rounded-xl hover:bg-blue-500 transition-colors mt-8"
+                className="block w-full py-3 px-4 mt-6 text-center bg-gradient-to-r from-[#75b022] to-[#588a1b] text-white font-medium hover:from-[#8ed629] hover:to-[#6aa621] transition-all rounded-sm shadow-md"
               >
-                Official Website
+                Visit Official Website
               </a>
             )}
           </div>
         </div>
+
+        <div className="max-w-3xl mb-16">
+          <h2 className="text-xl font-medium text-white mb-4 uppercase tracking-wide border-b border-zinc-800 pb-2">About This Game</h2>
+          <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap text-sm">
+            {game.description_raw || game.description.replace(/<[^>]*>?/gm, '')}
+          </p>
+        </div>
+
+        {similarGames.length > 0 && (
+          <div className="mt-16 border-t border-zinc-800 pt-8">
+            <h2 className="text-xl font-medium text-white mb-6 uppercase tracking-wide">More like this</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {similarGames.map((simGame) => (
+                <Link 
+                  key={simGame.id} 
+                  to={`/game/${simGame.id}`} 
+                  className="bg-[#12151a] hover:bg-[#1e2329] transition-colors group block relative"
+                >
+                  <img 
+                    src={simGame.background_image} 
+                    alt={simGame.name} 
+                    className="w-full h-32 object-cover"
+                  />
+                  <div className="p-3">
+                    <h3 className="text-sm font-medium text-zinc-300 group-hover:text-white truncate">
+                      {simGame.name}
+                    </h3>
+                    <div className="mt-1 flex justify-between items-center">
+                      <span className="text-xs text-zinc-500">{simGame.released?.split('-')[0]}</span>
+                      <span className="text-xs text-[#66C0F4]">{simGame.genres?.[0]?.name}</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 2. МОДАЛЬНОЕ ОКНО (Не блюрится) */}
       {selectedScreenshot && (
         <div 
-          className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 cursor-zoom-out"
+          className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 cursor-zoom-out"
           onClick={() => setSelectedScreenshot(null)}
         >
-          <div className="relative max-w-5xl w-full flex items-center justify-center">
+          <div className="relative max-w-7xl w-full flex items-center justify-center">
              <img 
               src={selectedScreenshot} 
               alt="Full size screenshot" 
-              className="max-w-full max-h-[90vh] rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-zinc-800 object-contain"
+              className="max-w-full max-h-[90vh] shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-zinc-800 object-contain"
             />
-            <button className="absolute -top-12 right-0 text-white text-4xl font-light hover:text-blue-500 transition">&times;</button>
+            <button className="absolute -top-10 right-0 text-zinc-400 text-4xl hover:text-white transition">&times;</button>
           </div>
         </div>
       )}
