@@ -1,1 +1,22 @@
 @import "tailwindcss";
+
+:root {
+  /* Встановлюємо Roboto та прибираємо розмиття картинок */
+  font-family: 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  image-rendering: auto;
+}
+
+body {
+  background-color: #1b2838; /* Наш фірмовий темно-синій */
+  color: #c6d4df;
+  margin: 0;
+  /* Робимо шрифт за замовчуванням жирнішим (Medium) */
+  font-weight: 500; 
+}
+
+/* Клас для екстра-жирних заголовків */
+.font-bold-steam {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}   
